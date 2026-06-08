@@ -1,0 +1,571 @@
+<!DOCTYPE html>
+<html lang="en">
+
+  <head>
+    <meta charset="UTF-8">
+    <title>Type play</title>
+    
+
+  </head>
+    
+  <body>
+  <!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>艺术图形生成器 Pro - 极速版</title>
+    <style>
+        body { 
+            background: #f0f0f0; 
+            color: #1a1a1a; 
+            font-family: "Microsoft YaHei", -apple-system, sans-serif; 
+            margin: 0;
+            padding: 0;
+            display: flex;
+            width: 100vw;
+            height: 100vh;
+            overflow: hidden; 
+        }
+
+        .sidebar {
+            width: 360px;
+            height: 100vh;
+            background: #D4DF72; 
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+            padding: 30px 25px;
+            box-sizing: border-box;
+            border-right: 1px solid rgba(0,0,0,0.1);
+            z-index: 10;
+        }
+
+        .panel { display: flex; flex-direction: column; gap: 22px; }
+
+        .ctrl { display: flex; flex-direction: column; gap: 8px; }
+        .ctrl label:first-child { 
+            font-size: 12px; 
+            font-weight: bold; 
+            color: #000; 
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            text-transform: uppercase;
+        }
+
+        select, .btn-white, .file-input-container {
+            background: #fff;
+            border: none;
+            padding: 10px;
+            font-size: 12px;
+            font-weight: bold;
+            width: 100%;
+            box-sizing: border-box;
+            border-radius: 0; 
+            outline: none;
+            cursor: pointer;
+            text-align: center;
+            appearance: none;
+        }
+
+        #upload { display: none; }
+        
+        .file-input-container { 
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+            height: 40px; 
+            position: relative;
+            padding: 0 12px; 
+            overflow: hidden;
+            box-sizing: border-box;
+        }
+        
+        #fileNameDisplay {
+            max-width: 85%;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap; 
+            display: block;
+        }
+        
+        .remove-btn {
+            color: #666; font-weight: 100; margin-left: 8px; font-size: 16px; cursor: pointer; display: none; line-height: 1;
+        }
+
+        input[type="range"] {
+            -webkit-appearance: none;
+            width: 100%;
+            height: 1px;
+            background: rgba(0,0,0,0.2);
+            margin: 15px 0;
+            outline: none;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 14px; height: 14px;
+            background: #000; border-radius: 50%; cursor: pointer;
+        }
+
+        .palette-preview { display: flex; gap: 0; height: 6px; margin-top: -5px; }
+        .palette-item { flex: 1; position: relative; cursor: pointer; border: 0.5px solid rgba(0,0,0,0.1); }
+        .palette-item input[type="color"] { position: absolute; top: -5px; left: -5px; width: 150%; height: 150%; cursor: pointer; opacity: 0; }
+
+        .bg-ctrl-group { display: flex; background: #fff; height: 35px; align-items: center; }
+        #colorBgBlock { width: 50%; height: 100%; cursor: pointer; border: none; }
+        
+        .hex-display { 
+            width: 50%; 
+            text-align: center; 
+            font-family: monospace; 
+            font-size: 12px; 
+            font-weight: bold; 
+            border: none; 
+            background: transparent; 
+            outline: none; 
+            color: #000;
+            padding: 0;
+            cursor: text;
+        }
+
+        .export-group { display: grid; grid-template-columns: 1fr 1.2fr 1fr; gap: 5px; }
+        .btn-black { background: #000; color: #fff; border: none; padding: 12px; font-weight: bold; font-size: 12px; cursor: pointer; text-transform: uppercase; }
+
+        .footer-text { margin-top: auto; padding-top: 40px; text-align: center; font-size: 10px; color: rgba(0,0,0,0.4); font-weight: bold; letter-spacing: 0.5px; }
+
+        .canvas-area { flex: 1; background: #e5e5e5; position: relative; overflow: hidden; cursor: default;}
+        canvas { width: 100%; height: 100%; display: block; }
+
+        .sidebar::-webkit-scrollbar { width: 0; }
+    </style>
+</head>
+<body>
+<div class="sidebar">
+    <div class="panel">
+        <div class="ctrl">
+            <label>上传图像 (Upload Image)</label>
+            <div class="file-input-container" onclick="document.getElementById('upload').click()">
+                <span id="fileNameDisplay">上传图像 ( Upload )</span>
+                <span id="removeBtn" class="remove-btn" onclick="clearImage(event)">✕</span>
+            </div>
+            <input type="file" id="upload" accept="image/*">
+        </div>
+
+        <div class="ctrl">
+            <label>色彩模式 (COLOR MODE & PALETTE)</label>
+            <select id="colorMode">
+                <option value="3">3色表现模式 / 3-COLOR</option>
+                <option value="4">4色表现模式 / 4-COLOR</option>
+            </select>
+            <div id="palettePreview" class="palette-preview"></div>
+        </div>
+
+        <div class="ctrl">
+            <label>抠图灵敏度 (EXTRACT) <span class="val-num" id="val-extract">30</span></label>
+            <input type="range" id="extractRange" min="1" max="150" value="30">
+        </div>
+
+        <div class="ctrl">
+            <label>色彩浸润 (BLEED) <span class="val-num" id="val-bleed">3.0</span></label>
+            <input type="range" id="bleed" min="0" max="10" step="0.5" value="3.0">
+        </div>
+
+        <!-- 修改部分：边缘破碎改为图形色彩效果 -->
+        <div class="ctrl">
+            <label>图形色彩 (COLOR EFFECT) <span class="val-num" id="val-colorEffect">0</span></label>
+            <input type="range" id="colorEffect" min="0" max="360" step="1" value="0">
+        </div>
+
+        <div class="ctrl">
+            <label>画布背景 (CANVAS BACKGROUND)</label>
+            <div class="bg-ctrl-group">
+                <input type="color" id="colorBg" value="#8D6558" style="display:none">
+                <div id="colorBgBlock" style="background-color: #8D6558;" onclick="document.getElementById('colorBg').click()"></div>
+                <input type="text" class="hex-display" id="hexDisplay" value="#8D6558" spellcheck="false">
+            </div>
+        </div>
+
+        <div class="ctrl">
+            <label>导出 EXPORT</label>
+            <div class="export-group">
+                <button class="btn-white" onclick="download('jpg')">JPG</button>
+                <button class="btn-white" onclick="download('png')">PNG</button>
+                <button class="btn-white" onclick="download('svg')">SVG</button>
+            </div>
+        </div>
+
+        <button class="btn-black" onclick="randomizeBg()">随机色彩效果 (RANDOM)</button>
+    </div>
+    <div class="footer-text">2026 design by Type Play.</div>
+</div>
+<div class="canvas-area" id="canvasArea">
+    <canvas id="canvas"></canvas>
+</div>
+
+<script>
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d', { alpha: true });
+    const canvasArea = document.getElementById('canvasArea');
+    const upload = document.getElementById('upload');
+    const fileNameDisplay = document.getElementById('fileNameDisplay');
+    const removeBtn = document.getElementById('removeBtn');
+    const hexDisplay = document.getElementById('hexDisplay');
+    const colorBg = document.getElementById('colorBg');
+
+    let imgObj = null;
+    let masterCacheCanvas = null; 
+    let globalGraphicScale = 0.8; 
+    let currentPalette = [];
+    let rafId = null;
+
+    canvasArea.onwheel = (e) => {
+        if(!imgObj) return;
+        e.preventDefault();
+        const zoomStep = 0.08;
+        globalGraphicScale = (e.deltaY < 0) ? 
+            Math.min(20.0, globalGraphicScale + zoomStep) : 
+            Math.max(0.05, globalGraphicScale - zoomStep);
+        renderView(); 
+    };
+
+    function resizeCanvas() {
+        const dpr = window.devicePixelRatio || 1;
+        canvas.width = canvasArea.clientWidth * dpr;
+        canvas.height = canvasArea.clientHeight * dpr;
+        canvas.style.width = canvasArea.clientWidth + 'px';
+        canvas.style.height = canvasArea.clientHeight + 'px';
+        renderView(); 
+    }
+
+    window.onload = resizeCanvas;
+    window.addEventListener('resize', resizeCanvas);
+
+    upload.onchange = (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        fileNameDisplay.textContent = file.name;
+        removeBtn.style.display = 'inline-block';
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+            imgObj = new Image();
+            imgObj.onload = () => processEffect();
+            imgObj.src = ev.target.result;
+        };
+        reader.readAsDataURL(file);
+    };
+
+    function clearImage(event) {
+        event.stopPropagation();
+        upload.value = ''; imgObj = null; masterCacheCanvas = null;
+        fileNameDisplay.textContent = '上传图像 ( Upload )';
+        removeBtn.style.display = 'none';
+        renderView();
+    }
+
+    document.querySelectorAll('input[type=range], #colorMode').forEach(i => {
+        i.oninput = () => {
+            if (rafId) cancelAnimationFrame(rafId);
+            rafId = requestAnimationFrame(() => processEffect());
+        };
+    });
+
+    colorBg.oninput = () => {
+        hexDisplay.value = colorBg.value.toUpperCase();
+        renderView();
+    };
+
+    hexDisplay.oninput = () => {
+        let val = hexDisplay.value;
+        if(!val.startsWith('#')) val = '#' + val;
+        if(/^#[0-9A-F]{6}$/i.test(val)) {
+            colorBg.value = val;
+            renderView();
+        }
+    };
+
+    // 核心工具函数：色相旋转变换
+    function rotateHue(rgb, degree) {
+        if (degree === 0) return rgb;
+        let [r, g, b] = rgb.map(v => v / 255);
+        let max = Math.max(r, g, b), min = Math.min(r, g, b);
+        let h, s, l = (max + min) / 2;
+        if (max === min) h = s = 0;
+        else {
+            let d = max - min;
+            s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+            switch (max) {
+                case r: h = (g - b) / d + (g < b ? 6 : 0); break;
+                case g: h = (b - r) / d + 2; break;
+                case b: h = (r - g) / d + 4; break;
+            }
+            h /= 6;
+        }
+        h = (h + degree / 360) % 1;
+        if (h < 0) h += 1;
+        const hue2rgb = (p, q, t) => {
+            if (t < 0) t += 1; if (t > 1) t -= 1;
+            if (t < 1/6) return p + (q - p) * 6 * t;
+            if (t < 1/2) return q;
+            if (t < 2/3) return p + (q - p) * (2/3 - t) * 6;
+            return p;
+        };
+        let q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+        let p = 2 * l - q;
+        return [
+            Math.round(hue2rgb(p, q, h + 1/3) * 255),
+            Math.round(hue2rgb(p, q, h) * 255),
+            Math.round(hue2rgb(p, q, h - 1/3) * 255)
+        ];
+    }
+
+    function processEffect() {
+        if (!imgObj) return;
+        
+        document.getElementById('val-extract').textContent = document.getElementById('extractRange').value;
+        document.getElementById('val-bleed').textContent = parseFloat(document.getElementById('bleed').value).toFixed(1);
+        document.getElementById('val-colorEffect').textContent = document.getElementById('colorEffect').value;
+
+        const bleed = parseFloat(document.getElementById('bleed').value);
+        const extract = parseInt(document.getElementById('extractRange').value);
+        const cMode = parseInt(document.getElementById('colorMode').value);
+        const hueShift = parseInt(document.getElementById('colorEffect').value);
+
+        if (currentPalette.length !== cMode) {
+            currentPalette = [[0, 242, 255], [255, 100, 30], [200, 200, 50], [255, 80, 200]].slice(0, cMode);
+        }
+        updatePaletteUI(cMode);
+
+        // 预计算经过色相旋转后的临时调色板，不改变原调色板
+        const activePalette = currentPalette.map(c => rotateHue(c, hueShift));
+
+        const procW = 1500; 
+        const procH = procW / (imgObj.width / imgObj.height);
+        
+        const offCanvas = document.createElement('canvas');
+        offCanvas.width = procW;
+        offCanvas.height = procH;
+        const oCtx = offCanvas.getContext('2d');
+        
+        oCtx.filter = `blur(${bleed * (procW/1024)}px) grayscale(100%)`;
+        oCtx.drawImage(imgObj, 0, 0, procW, procH);
+
+        const imgData = oCtx.getImageData(0, 0, procW, procH);
+        const data = imgData.data;
+        const baseThreshold = 255 - extract;
+
+        for (let i = 0; i < data.length; i += 4) {
+            const brightness = (data[i] + data[i+1] + data[i+2]) / 3;
+            if (brightness < baseThreshold) {
+                const paletteIdx = Math.min(Math.floor(brightness / (256 / cMode)), cMode - 1);
+                const col = activePalette[paletteIdx]; // 使用变换后的颜色
+                data[i] = col[0];
+                data[i+1] = col[1];
+                data[i+2] = col[2];
+                data[i+3] = 255;
+            } else {
+                data[i+3] = 0;
+            }
+        }
+        
+        oCtx.filter = 'none';
+        oCtx.putImageData(imgData, 0, 0);
+        masterCacheCanvas = offCanvas;
+        renderView();
+    }
+
+    function renderView() {
+        const bgVal = colorBg.value;
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = bgVal;
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        
+        document.getElementById('colorBgBlock').style.backgroundColor = bgVal;
+        if (document.activeElement !== hexDisplay) {
+            hexDisplay.value = bgVal.toUpperCase();
+        }
+
+        if (!masterCacheCanvas) return;
+        
+        const drawDims = getDrawDimensions(canvas.width, canvas.height, masterCacheCanvas);
+        ctx.save();
+        ctx.imageSmoothingEnabled = true; 
+        ctx.drawImage(masterCacheCanvas, drawDims.x, drawDims.y, drawDims.w, drawDims.h);
+        ctx.restore();
+    }
+
+    function getDrawDimensions(targetW, targetH, sourceImg) {
+        const imgRatio = sourceImg.width / sourceImg.height;
+        const targetRatio = targetW / targetH;
+        let w, h;
+        if (imgRatio > targetRatio) {
+            w = targetW * globalGraphicScale;
+            h = w / imgRatio;
+        } else {
+            h = targetH * globalGraphicScale;
+            w = h * imgRatio;
+        }
+        return { w, h, x: (targetW - w) / 2, y: (targetH - h) / 2 };
+    }
+
+    function updatePaletteUI(count) {
+        const container = document.getElementById('palettePreview');
+        if (container.children.length === count) return;
+        container.innerHTML = '';
+        currentPalette.forEach((col, i) => {
+            const item = document.createElement('div');
+            item.className = 'palette-item';
+            item.style.backgroundColor = rgbToHex(col[0], col[1], col[2]);
+            const picker = document.createElement('input');
+            picker.type = 'color';
+            picker.value = rgbToHex(col[0], col[1], col[2]);
+            picker.oninput = (e) => {
+                currentPalette[i] = hexToRgb(e.target.value);
+                item.style.backgroundColor = e.target.value;
+                processEffect();
+            };
+            item.appendChild(picker);
+            container.appendChild(item);
+        });
+    }
+
+    function randomizeBg() {
+        const cMode = parseInt(document.getElementById('colorMode').value);
+        const newPalette = [];
+        const startHue = Math.random() * 360;
+        for (let i = 0; i < cMode; i++) {
+            const h = (startHue + (i * (360 / cMode))) % 360;
+            newPalette.push(hslToRgb(h / 360, 0.8, 0.5));
+        }
+        currentPalette = newPalette;
+        
+        const bgHue = Math.random();
+        const vividBg = hslToRgb(bgHue, 0.8, 0.5); 
+        const bgHex = rgbToHex(...vividBg);
+        
+        colorBg.value = bgHex;
+        hexDisplay.value = bgHex.toUpperCase();
+        
+        // 随机时重置效果滑块为0，确保随机结果直观
+        document.getElementById('colorEffect').value = 0;
+        
+        if (imgObj) processEffect();
+        renderView();
+    }
+
+    function hslToRgb(h, s, l) {
+        let r, g, b;
+        const hue2rgb = (p, q, t) => {
+            if (t < 0) t += 1; if (t > 1) t -= 1;
+            if (t < 1/6) return p + (q - p) * 6 * t;
+            if (t < 1/2) return q;
+            if (t < 2/3) return p + (q - p) * (2/3 - t) * 6;
+            return p;
+        };
+        const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+        const p = 2 * l - q;
+        r = hue2rgb(p, q, h + 1/3); g = hue2rgb(p, q, h); b = hue2rgb(p, q, h - 1/3);
+        return [Math.round(r * 255), Math.round(g * 255), Math.round(b * 255)];
+    }
+
+    function hexToRgb(hex) {
+        const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+        return result ? [parseInt(result[1], 16), parseInt(result[2], 16), parseInt(result[3], 16)] : [0, 0, 0];
+    }
+
+    function rgbToHex(r, g, b) {
+        return "#" + [r, g, b].map(x => Math.round(x).toString(16).padStart(2, '0')).join('');
+    }
+
+    function download(format) {
+        if(!imgObj) return;
+        const bg = colorBg.value;
+        const exportW = format === 'svg' ? 1200 : 4000; 
+        const exportH = Math.round(exportW / (imgObj.width / imgObj.height));
+
+        const eCanvas = document.createElement('canvas');
+        eCanvas.width = exportW; eCanvas.height = exportH;
+        const eCtx = eCanvas.getContext('2d');
+        
+        const bleed = parseFloat(document.getElementById('bleed').value);
+        const extract = parseInt(document.getElementById('extractRange').value);
+        const cMode = parseInt(document.getElementById('colorMode').value);
+        const hueShift = parseInt(document.getElementById('colorEffect').value);
+        
+        const activePalette = currentPalette.map(c => rotateHue(c, hueShift));
+
+        if (format === 'jpg') {
+            eCtx.fillStyle = bg;
+            eCtx.fillRect(0, 0, exportW, exportH);
+        }
+
+        const tempCanvas = document.createElement('canvas');
+        tempCanvas.width = exportW; tempCanvas.height = exportH;
+        const tCtx = tempCanvas.getContext('2d');
+        tCtx.filter = `blur(${(bleed * exportW/1024)}px) grayscale(100%)`;
+        tCtx.drawImage(imgObj, 0, 0, exportW, exportH);
+
+        const imgData = tCtx.getImageData(0, 0, exportW, exportH);
+        const data = imgData.data;
+        const baseThreshold = 255 - extract;
+
+        if (format === 'svg') {
+            const paths = {}; 
+            for (let y = 0; y < exportH; y++) {
+                let x = 0;
+                while (x < exportW) {
+                    const i = (y * exportW + x) * 4;
+                    const brightness = (data[i] + data[i+1] + data[i+2]) / 3;
+                    if (brightness < baseThreshold) {
+                        const pIdx = Math.min(Math.floor(brightness / (256 / cMode)), cMode - 1);
+                        const hex = rgbToHex(...activePalette[pIdx]);
+                        if (!paths[hex]) paths[hex] = "";
+                        let startX = x;
+                        while (x < exportW) {
+                            const ni = (y * exportW + x) * 4;
+                            const nb = (data[ni] + data[ni+1] + data[ni+2]) / 3;
+                            const npIdx = Math.min(Math.floor(nb / (256 / cMode)), cMode - 1);
+                            if (nb < baseThreshold && rgbToHex(...activePalette[npIdx]) === hex) { x++; } else { break; }
+                        }
+                        const w = x - startX;
+                        paths[hex] += `M${startX} ${y}h${w}v1h-${w}z `;
+                    } else { x++; }
+                }
+            }
+            let svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${exportW}" height="${exportH}" viewBox="0 0 ${exportW} ${exportH}">`;
+            svg += `<rect width="100%" height="100%" fill="${bg}"/>`;
+            for (const [color, d] of Object.entries(paths)) {
+                svg += `<path d="${d}" fill="${color}" stroke="none" shape-rendering="crispEdges"/>`;
+            }
+            svg += `</svg>`;
+            const link = document.createElement('a');
+            link.download = `vector-${Date.now()}.svg`;
+            link.href = URL.createObjectURL(new Blob([svg], {type: 'image/svg+xml'}));
+            link.click();
+            return;
+        }
+
+        for (let i = 0; i < data.length; i += 4) {
+            const b = (data[i] + data[i+1] + data[i+2])/3;
+            if (b < baseThreshold) {
+                const c = activePalette[Math.min(Math.floor(b/(256/cMode)), cMode-1)];
+                data[i] = c[0]; data[i+1] = c[1]; data[i+2] = c[2]; data[i+3] = 255;
+            } else {
+                data[i+3] = 0;
+            }
+        }
+        tCtx.filter = 'none';
+        tCtx.putImageData(imgData, 0, 0);
+        eCtx.drawImage(tempCanvas, 0, 0);
+
+        const link = document.createElement('a');
+        link.download = `art-export-${Date.now()}.${format}`;
+        link.href = eCanvas.toDataURL(format === 'png' ? 'image/png' : 'image/jpeg', 0.95);
+        link.click();
+    }
+</script>
+</body>
+</html>
+    
+  </body>
+  
+</html>
